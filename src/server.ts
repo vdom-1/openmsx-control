@@ -18,9 +18,9 @@ const server = new McpServer({
 });
 const logger = createLogger(server);
 const authenticator = createSSPIAuthenticator(logger);
-const instanceManager = createInstanceManager();
+const instanceManager = createInstanceManager(logger);
 const connector = createConnector(logger, authenticator);
-const dispatcher = createDispatcher(connector, instanceManager);
+const dispatcher = createDispatcher(logger, connector, instanceManager);
 
 
 const createServer = () => {
@@ -40,13 +40,13 @@ const createServer = () => {
                         typeof selectedInstance.content === 'object' && 
                         selectedInstance.content !== null &&
                         'instance' in selectedInstance.content) {
-                        await dispatcher.resolveAndAttach(selectedInstance.content.instance as string);
+                        await dispatcher.resolveElicitation(selectedInstance.content.instance as string);
                         const response = await dispatcher.sendCommand(command);
                         const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
                         return {
                         content: [{ type: "text", text }] };
                     }else{
-                        throw new Error("No instance attached. Cannot send command.");
+                        throw new Error("Operation aborted! Must select an instance or spawn a new one.");
                     }
                 }                     
                 const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');

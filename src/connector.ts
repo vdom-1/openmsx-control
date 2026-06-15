@@ -3,13 +3,12 @@ import { EventEmitter } from 'events';
 import { Logger } from './logger.js';
 import { SSPIAuthenticator } from './sspi-authenticator.js';
 
-
 export interface Connector {
     on: (event: string, listener: (...args: any[]) => void) => void;    
     sendCommand: (command: string) => Promise<string>;
     attachInstance: (port: string) => Promise<void>;
-    isConnected: () => boolean;
-    getCurrentPort: () => string | null;
+    isConnected: (port?: string) => boolean;
+    isPortAlive (port: string): Promise<boolean>;
 }
 
 export const createConnector = (
@@ -18,7 +17,6 @@ export const createConnector = (
 ): Connector => {
     const emitter = new EventEmitter();
     let client: net.Socket | null = null;
-    let currentPort: string | null = null;
 
     const parseResponse = (xml: string): string => {
         const contentMatch = xml.match(/>([^<]+)<\/reply>/);
@@ -51,14 +49,25 @@ export const createConnector = (
             client!.write(`<command>${command}</command>\n`);
         });
     };
-
     
     return {
         on: (event, listener) => emitter.on(event, listener),
 
+        isPortAlive : (port: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            const socket=net.connect(parseInt(port, 10), '127.0.0.1', () => {
+                socket.destroy();
+                resolve(true);
+            });
+            socket.on('error', () => { resolve(false); });
+        });
+    },
+
         async attachInstance(portStr: string): Promise<void> {
             const port = parseInt(portStr, 10);            
-            if (client && !client.destroyed && currentPort === portStr) return;
+            if (client && !client.destroyed) {
+                if (client.remotePort === port) return;
+            }
             if (client) { client.destroy(); client = null; }
             client = await new Promise<net.Socket>((resolve, reject) => {
                 const socket = net.connect(port, '127.0.0.1', async () => {
@@ -76,8 +85,7 @@ export const createConnector = (
                 });
                 socket.on('error', reject);
             });
-            currentPort = portStr;
-            logger.debug(`[Worker] Successfully attached to port: ${portStr}`);
+            logger.debug(`Successfully attached to port: ${portStr}`);
         },
         
         async sendCommand(input: string): Promise<string> {
@@ -88,10 +96,12 @@ export const createConnector = (
         },
 
         isConnected: (port?: string) => {
-           return !!(client && !client.destroyed && client.writable);
-        },
-
-        getCurrentPort: () =>{return currentPort}        
+            if (!client || client.destroyed || !client.writable) return false;
+            if (port !== undefined) {
+                return client.remotePort === parseInt(port, 10);
+            }
+            return true;
+        }    
 
     };
 };

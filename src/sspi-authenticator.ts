@@ -38,7 +38,7 @@ export const createSSPIAuthenticator = (logger: Logger): SSPIAuthenticator => {
         performAuth: async (socket: net.Socket): Promise<void> => {
             const reader = createStreamReader(socket);
             try{
-                await logger.info("Starting SSPI handshake...");
+                //await logger.info("Starting SSPI handshake...");
                 const cred = nes.sspi.AcquireCredentialsHandle({ 
                     packageName: 'Negotiate', 
                     credentialUse: 'SECPKG_CRED_OUTBOUND' 
@@ -65,7 +65,7 @@ export const createSSPIAuthenticator = (logger: Logger): SSPIAuthenticator => {
                         }
                     }
                     if (String(clientCtx.SECURITY_STATUS) === 'SEC_E_OK' || Number(clientCtx.SECURITY_STATUS) === 0) {
-                        await logger.info("SSPI Handshake successful");
+                        //await logger.info("SSPI Handshake successful");
                         break;
                     }
                     const sizeData = await reader.read(4);
@@ -81,7 +81,8 @@ export const createSSPIAuthenticator = (logger: Logger): SSPIAuthenticator => {
                     };
                 }
             }catch(error){
-                await logger.error(`SSPI Handshake failed: ${error}`);
+                throw new Error(`SSPI Handshake failed: ${error}`);
+                //await logger.error(`SSPI Handshake failed: ${error}`);
             }finally{
                 reader.cleanup();
             }
