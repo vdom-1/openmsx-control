@@ -82,17 +82,11 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
             logger.debug(`1. activeInstancePort ${activeInstancePort}`);
             
             if (activeInstancePort) {
-                logger.debug(` isPortAlive ${await connector.isPortAlive(activeInstancePort)}`);
-                if (!await connector.isPortAlive(activeInstancePort)) {
-                    logger.debug(`erase active port. fall through to fresh session logic`);
+                try {
+                    await connector.attachInstance(activeInstancePort);
+                } catch (e) {
+                    logger.debug(`failed to attach to active instance. fall through to fresh session logic`);
                     activeInstancePort = null;
-                } else if (!connector.isConnected(activeInstancePort)) {
-                    try {
-                        await connector.attachInstance(activeInstancePort);
-                    } catch (e) {
-                        logger.debug(`failed to attach. erase active port. fall through`);
-                        activeInstancePort = null;
-                    }
                 }
             }
 

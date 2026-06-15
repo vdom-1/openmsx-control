@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import net from 'net';
-import { createLogger, Logger } from './logger.js';
+import { Logger } from './logger.js';
 import { spawn, ChildProcess } from 'child_process';
 
 export interface InstanceManager {

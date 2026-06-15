@@ -7,7 +7,6 @@ export interface Connector {
     on: (event: string, listener: (...args: any[]) => void) => void;    
     sendCommand: (command: string) => Promise<string>;
     attachInstance: (port: string) => Promise<void>;
-    isConnected: (port?: string) => boolean;
     isPortAlive (port: string): Promise<boolean>;
 }
 
@@ -76,6 +75,7 @@ export const createConnector = (
                         socket.write('<openmsx-control>\n');
                         resolve(socket);
                     } catch (e) {
+                        socket.destroy();
                         reject(e);
                     }
                 });
@@ -94,14 +94,6 @@ export const createConnector = (
             }
             return writeCommand(input); 
         },
-
-        isConnected: (port?: string) => {
-            if (!client || client.destroyed || !client.writable) return false;
-            if (port !== undefined) {
-                return client.remotePort === parseInt(port, 10);
-            }
-            return true;
-        }    
 
     };
 };
