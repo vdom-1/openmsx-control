@@ -2,45 +2,51 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
-import { createWorker } from "./worker.js";
+import { createConnector } from "./connector.js";
 import { createDispatcher } from "./dispatcher.js";
+import { createInstanceManager } from './instance-manager.js';
 
 const server = new McpServer({
     name: "openmsx-control-server",
-    version: "1.0.0",}, {
-        capabilities: {}
+    version: "1.0.0"
+}, {
+    capabilities: {}
 });
-
 const logger = createLogger(server);
 const authenticator = createSSPIAuthenticator(logger);
-const worker = createWorker(logger, authenticator);
-const dispatcher = createDispatcher(worker);
+const instanceManager = createInstanceManager();
+const connector = createConnector(logger, authenticator);
+const dispatcher = createDispatcher(connector, instanceManager);
+
 
 const createServer = () => {
     server.registerTool(
         "sendCommand", 
         {
             description: "Sends a command to the openMSX instance.",
-            inputSchema: z.object({ command: z.string().describe("e.g., 'help', 'list_media'") })
+            inputSchema: z.object({ command: z.string().describe("e.g., 'help','help <command>' ,'help <command> <subcommand>' ,'openmsx_info setting' ,'help set <setting>'") })
         },
         async ({ command }) => {
-            try {
-                
+            try {                
                 const response = await dispatcher.sendCommand(command);
-                if(response.status==='ELICTATION_REQUIRED'){
-                    const selectInstance = await server.server.elicitInput({message: '',requestedSchema: {type: 'object', properties:{}}}); //response.content
-                     if (selectInstance.action == 'accept') {
-                        const isInstanceAttached = await dispatcher.attachInstance("PID");//selectInstance.content?
-                        if(!isInstanceAttached){
-                            return { content: [{ type: "text", text: "Error: Could not attach to instance. Try another instance or start a new one." }] };
-                        }
+                if(response. status==='ELICITATION_REQUIRED'){
+                    const selectedInstance:ElicitResult = await server.server.elicitInput(response.content);
+                    logger.debug("DEBUG - Elicitation Result:" + JSON.stringify(selectedInstance, null, 2));
+                     if (selectedInstance.action == 'accept'&& 
+                        typeof selectedInstance.content === 'object' && 
+                        selectedInstance.content !== null &&
+                        'instance' in selectedInstance.content) {
+                        await dispatcher.resolveAndAttach(selectedInstance.content.instance as string);
                         const response = await dispatcher.sendCommand(command);
                         const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
                         return {
                         content: [{ type: "text", text }] };
+                    }else{
+                        throw new Error("No instance attached. Cannot send command.");
                     }
                 }                     
                 const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
