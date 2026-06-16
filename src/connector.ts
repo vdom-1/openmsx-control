@@ -45,6 +45,7 @@ export const createConnector = (
             }, 10000);
 
             emitter.once('reply', handler);
+            emitter.emit('command', `<command>${command}</command>`)
             client!.write(`<command>${command}</command>\n`);
         });
     };
@@ -53,14 +54,14 @@ export const createConnector = (
         on: (event, listener) => emitter.on(event, listener),
 
         isPortAlive : (port: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            const socket=net.connect(parseInt(port, 10), '127.0.0.1', () => {
-                socket.destroy();
-                resolve(true);
+            return new Promise((resolve) => {
+                const socket=net.connect(parseInt(port, 10), '127.0.0.1', () => {
+                    socket.destroy();
+                    resolve(true);
+                });
+                socket.on('error', () => { resolve(false); });
             });
-            socket.on('error', () => { resolve(false); });
-        });
-    },
+        }, 
 
         async attachInstance(portStr: string): Promise<void> {
             const port = parseInt(portStr, 10);            
@@ -79,13 +80,20 @@ export const createConnector = (
                         reject(e);
                     }
                 });
-                socket.on('data', (data) => {
-                    const rawOutput = data.toString();
-                    if (rawOutput.includes('</reply>')) emitter.emit('reply', rawOutput);
+                let buffer = '';
+                socket.on('data', (chunk) => {
+                    buffer += chunk.toString();                    
+                    while (buffer.includes('</reply>')) {
+                        const endIndex = buffer.indexOf('</reply>') + 8;
+                        const message = buffer.substring(0, endIndex);
+                        buffer = buffer.substring(endIndex);
+                        emitter.emit('reply', message); 
+                    }
                 });
-                socket.on('error', reject);
+                socket.on('error', (e) => { buffer = ''; reject(e) });
+                socket.on('close', () => { buffer = ''});
             });
-            logger.debug(`Successfully attached to port: ${portStr}`);
+            emitter.emit('connected',`Successfully connected to port: ${client.remotePort}`);
         },
         
         async sendCommand(input: string): Promise<string> {

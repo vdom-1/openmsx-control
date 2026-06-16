@@ -1,6 +1,6 @@
 {
   "servers": {
-    "openMSX-Control": {
+    "openmsx-control": {
       "command": "node",
       "args": ["C:\\MSX\\WORKSPACE\\openmsx-control\\dist\\server.js"],
       "env": {

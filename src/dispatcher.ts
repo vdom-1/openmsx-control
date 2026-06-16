@@ -28,7 +28,10 @@ export type DispatcherResult =
 export const createDispatcher = ( logger: Logger, connector: Connector, instanceManager: InstanceManager ): {
         sendCommand: (command: string) => Promise<DispatcherResult>;
         resolveElicitation: (selection: string) => Promise<void>; 
-    } => {
+    } => {            
+    connector.on('command', (command) => { logger.info(`Command Sent: ${command}`); });
+    connector.on('reply', (reply) => { logger.info(`Reply Received: ${reply}`); });
+    connector.on('connected', (message) => { logger.info(message); });
     const queue: Task[] = [];
     let isProcessing = false;
     let activeInstancePort: string | null = null;
@@ -79,8 +82,7 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
 
     return {
         sendCommand: async (command: string) => enqueue(async (): Promise<DispatcherResult> => {
-            logger.debug(`1. activeInstancePort ${activeInstancePort}`);
-            
+            logger.debug(`1. activeInstancePort ${activeInstancePort}`);            
             if (activeInstancePort) {
                 try {
                     await connector.attachInstance(activeInstancePort);
@@ -89,22 +91,16 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
                     activeInstancePort = null;
                 }
             }
-
             if (activeInstancePort) {
                 return { status: 'SUCCESS', content: await connector.sendCommand(command) };
             }
-
-            // 2. FRESH SESSION: No intent established yet.
             const instances = await instanceManager.fetchInstances();
-
-            // Scenario A: No instances exist - Auto-spawn a fresh one
             if (instances.length === 0) {
                 const port = await instanceManager.spawnInstance();
                 await connector.attachInstance(port);
                 activeInstancePort = port; // Lock the session
                 return { status: 'SUCCESS', content: await connector.sendCommand(command) };
             }
-            // Scenario B: Instances exist - Elicit to gain intent
             return { status: 'ELICITATION_REQUIRED', content: buildElicitation(instances) };
         }),
 
