@@ -35,7 +35,7 @@ const createServer = () => {
                 const response = await dispatcher.sendCommand(command);
                 if(response. status==='ELICITATION_REQUIRED'){
                     const selectedInstance:ElicitResult = await server.server.elicitInput(response.content);
-                    logger.debug("DEBUG - Elicitation Result:" + JSON.stringify(selectedInstance, null, 2));
+                    logger.debug("Elicitation Result" + JSON.stringify(selectedInstance, null, 2));
                      if (selectedInstance.action == 'accept'&& 
                         typeof selectedInstance.content === 'object' && 
                         selectedInstance.content !== null &&

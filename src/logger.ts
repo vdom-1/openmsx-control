@@ -14,7 +14,7 @@ export const createLogger = (server: McpServer): Logger => {
   const emit = async (message: string, level: LogLevel) => {
     await server.sendLoggingMessage({ level, data: message });
     if (isDev) {
-      console.error(`[${level.toUpperCase()}]: ${message}`);
+      console.error(`[${level.toUpperCase()}] ${message}`);
     }
   };
   return {

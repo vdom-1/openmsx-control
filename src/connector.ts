@@ -6,8 +6,8 @@ import { SSPIAuthenticator } from './sspi-authenticator.js';
 export interface Connector {
     on: (event: string, listener: (...args: any[]) => void) => void;    
     sendCommand: (command: string) => Promise<string>;
-    attachInstance: (port: string) => Promise<void>;
-    isPortAlive (port: string): Promise<boolean>;
+    establishConnection: (port: string) => Promise<void>;
+    isConnected (port: string): Promise<boolean>;
 }
 
 export const createConnector = (
@@ -16,17 +16,14 @@ export const createConnector = (
 ): Connector => {
     const emitter = new EventEmitter();
     let client: net.Socket | null = null;
-
     const parseResponse = (xml: string): string => {
         const contentMatch = xml.match(/>([^<]+)<\/reply>/);
         const rawContent = contentMatch ? contentMatch[1] : null;
-
         const decodeEntities = (str: string | null) => {
             if (!str) return "";
             return str.replace(/&apos;/g, "'").replace(/&#x0a;/g, "\n").replace(/&quot;/g, '"')
                       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
         };
-
         return decodeEntities(rawContent)      
         
     };
@@ -38,12 +35,10 @@ export const createConnector = (
                 emitter.removeListener('reply', handler);
                 resolve(parseResponse(xmlString));
             };
-
             const timeout = setTimeout(() => {
                 emitter.removeListener('reply', handler);
                 reject(new Error(`Command timed out: ${command}`));
             }, 10000);
-
             emitter.once('reply', handler);
             emitter.emit('command', `<command>${command}</command>`)
             client!.write(`<command>${command}</command>\n`);
@@ -53,7 +48,7 @@ export const createConnector = (
     return {
         on: (event, listener) => emitter.on(event, listener),
 
-        isPortAlive : (port: string): Promise<boolean> => {
+        isConnected : (port: string): Promise<boolean> => {
             return new Promise((resolve) => {
                 const socket=net.connect(parseInt(port, 10), '127.0.0.1', () => {
                     socket.destroy();
@@ -63,7 +58,7 @@ export const createConnector = (
             });
         }, 
 
-        async attachInstance(portStr: string): Promise<void> {
+        async establishConnection(portStr: string): Promise<void> {
             const port = parseInt(portStr, 10);            
             if (client && !client.destroyed) {
                 if (client.remotePort === port) return;

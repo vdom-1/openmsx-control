@@ -34,7 +34,7 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
     connector.on('connected', (message) => { logger.info(message); });
     const queue: Task[] = [];
     let isProcessing = false;
-    let activeInstancePort: string | null = null;
+    let attachedInstance: OpenMSXInstance | null = null;
     const processQueue = async () => {
         if (isProcessing || queue.length === 0) return;
         isProcessing = true;
@@ -82,23 +82,23 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
 
     return {
         sendCommand: async (command: string) => enqueue(async (): Promise<DispatcherResult> => {
-            logger.debug(`1. activeInstancePort ${activeInstancePort}`);            
-            if (activeInstancePort) {
+            logger.info(`Attached instance ${JSON.stringify(attachedInstance)}`)
+            if (attachedInstance) {
                 try {
-                    await connector.attachInstance(activeInstancePort);
+                    await connector.establishConnection(attachedInstance.port);
                 } catch (e) {
-                    logger.debug(`failed to attach to active instance. fall through to fresh session logic`);
-                    activeInstancePort = null;
+                    logger.debug(`Failed to stablish connection to the attached instance. fall through to fresh session logic`);
+                    attachedInstance = null;
                 }
             }
-            if (activeInstancePort) {
+            if (attachedInstance) {
                 return { status: 'SUCCESS', content: await connector.sendCommand(command) };
             }
             const instances = await instanceManager.fetchInstances();
             if (instances.length === 0) {
-                const port = await instanceManager.spawnInstance();
-                await connector.attachInstance(port);
-                activeInstancePort = port; // Lock the session
+                const newInstance = await instanceManager.spawnInstance();
+                await connector.establishConnection(newInstance.port);
+                attachedInstance = newInstance;
                 return { status: 'SUCCESS', content: await connector.sendCommand(command) };
             }
             return { status: 'ELICITATION_REQUIRED', content: buildElicitation(instances) };
@@ -106,21 +106,21 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
 
         resolveElicitation: async (selectedPort: string) => {
             if (selectedPort === 'NEW') {
-                const newPort = await instanceManager.spawnInstance();
-                await connector.attachInstance(newPort);
-                activeInstancePort = newPort;                
+                const newInstance = await instanceManager.spawnInstance();
+                await connector.establishConnection(newInstance.port);
+                attachedInstance = newInstance;                
                 return;
             }
             const instances = await instanceManager.fetchInstances();
             logger.debug(JSON.stringify(instances));
             const target = instances.find(i => i.port === selectedPort);        
             if (!target) throw new Error(`Instance with PORT ${selectedPort} no longer exists.`);        
-            const alive = await connector.isPortAlive(target.port);
+            const alive = await connector.isConnected(target.port);
             if (!alive) {
                 throw new Error(`Instance with PID ${selectedPort} appears to be stale (socket exists, but port is not responding).`);
             }
-            await connector.attachInstance(selectedPort);
-            activeInstancePort = selectedPort; // Session intent locked
+            await connector.establishConnection(selectedPort);
+            attachedInstance = target;
         }
     };
 };
