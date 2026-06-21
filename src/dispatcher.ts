@@ -59,18 +59,18 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
     };
 
     const buildElicitation = (instances: OpenMSXInstance[]): Elicitation => ({
-        message: "Multiple instances found. Please select one PID.",
+        message: "Multiple socket endpoints found",
         mode: 'form',
         requestedSchema: {
             type: "object",
             properties: {
                 instance: {
                     type: 'string',
-                    title: 'Instance',
-                    description: 'Running instances',
+                    title: 'Sockets',
+                    description: 'Choose a socket endpoint to connect to',
                     oneOf: [
-                        ...instances.map(i => ({ const: i.port, title: `PID=${i.pid}, PORT=${i.port}, LastModified=${i.lastModified}`  })),
-                        { const: 'NEW', title: 'Spawn new instance' }
+                        ...instances.map(i => ({ const: i.port, title: `socket.${i.pid}, PORT=${i.port}, LastModified=${i.lastModified}`  })),
+                        { const: 'NEW', title: 'Start fresh instance' }
                     ],
                     default: 'NEW'
                 }
@@ -87,7 +87,8 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
                 try {
                     await connector.establishConnection(attachedInstance.port);
                 } catch (e) {
-                    logger.debug(`Failed to stablish connection to the attached instance. fall through to fresh session logic`);
+                    logger.warning(`Failed to stablish connection to the attached instance`);
+                    logger.info(`Falling through to spawing a new instance`);
                     attachedInstance = null;
                 }
             }
