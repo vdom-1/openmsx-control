@@ -59,15 +59,15 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
     };
 
     const buildElicitation = (instances: OpenMSXInstance[]): Elicitation => ({
-        message: "Multiple socket endpoints found",
+        message: "Multiple socket files found",
         mode: 'form',
         requestedSchema: {
             type: "object",
             properties: {
                 instance: {
                     type: 'string',
-                    title: 'Sockets',
-                    description: 'Choose a socket endpoint to connect to',
+                    title: 'Choose a socket file connect connection',
+                    description: 'socket.<PID>, PORT, LastModified',
                     oneOf: [
                         ...instances.map(i => ({ const: i.port, title: `socket.${i.pid}, PORT=${i.port}, LastModified=${i.lastModified}`  })),
                         { const: 'NEW', title: 'Start fresh instance' }
