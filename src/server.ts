@@ -9,6 +9,9 @@ import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
 import { createDispatcher } from "./dispatcher.js";
 import { createInstanceManager } from './instance-manager.js';
+import fs from 'fs';
+import path from 'path';
+import { text } from "stream/consumers";
 
 const server = new McpServer({
     name: "openmsx-control-server",
@@ -24,11 +27,36 @@ const dispatcher = createDispatcher(logger, connector, instanceManager);
 
 
 const createServer = () => {
+    server.registerResource(
+        'guide',
+        'openmsx-control://guide',
+        {
+            title: 'OpenMSX discovery',
+            description: 'Use this resource to learn about the API',
+            mimeType: 'text/markdown'
+        },
+        async uri => {
+            const targetPath = './src/openmsx-guide.md';        
+            const absolutePath = path.resolve(targetPath);
+            try {
+                const guide = fs.readFileSync(targetPath, 'utf8');
+                return {            
+                    contents: [{ 
+                        uri: uri.href,                        
+                        text: guide 
+                    }]
+                };
+            } catch (err) {
+                logger.error(`Failed to read ${absolutePath} inside resource: ${err}`);
+                return { contents: [] };
+            }
+        }
+    );
     server.registerTool(
         "sendCommand", 
         {
             description: "Sends a command to the openMSX instance.",
-            inputSchema: z.object({ command: z.string().describe("e.g., 'help','help <command>' ,'help <command> <subcommand>' ,'openmsx_info setting' ,'help set <setting>'") })
+            inputSchema: z.object({ command: z.string().describe("For guidance on how to operate this tool see openmsx-control://guide") })
         },
         async ({ command }) => {
             try {                
