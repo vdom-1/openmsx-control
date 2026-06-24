@@ -28,7 +28,7 @@ const dispatcher = createDispatcher(logger, connector, instanceManager);
 
 const createServer = () => {
     server.registerResource(
-        'guide',
+        'toolGuide',
         'openmsx-control://guide',
         {
             title: 'OpenMSX discovery',
