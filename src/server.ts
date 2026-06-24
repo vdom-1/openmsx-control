@@ -56,7 +56,7 @@ const createServer = () => {
         "sendCommand", 
         {
             description: "Sends a command to the openMSX instance.",
-            inputSchema: z.object({ command: z.string().describe("For guidance on how to operate this tool see openmsx-control://guide") })
+            inputSchema: z.object({ command: z.string().describe("For guidance on how to operate this tool, refer to `openmsx-control://guide`") })
         },
         async ({ command }) => {
             try {                
