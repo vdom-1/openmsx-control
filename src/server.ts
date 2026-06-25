@@ -25,8 +25,7 @@ const instanceManager = createInstanceManager(logger);
 const connector = createConnector(logger, authenticator);
 const dispatcher = createDispatcher(logger, connector, instanceManager);
 
-
-const createServer = () => {
+const createServer = () => {    
     server.registerResource(
         'sendCommandGuide',
         'openmsx-control://sendcommand/guide',
@@ -50,6 +49,7 @@ const createServer = () => {
             }
         }
     );
+
     server.registerTool(
         "sendCommand", 
         {
@@ -58,15 +58,14 @@ const createServer = () => {
         },
         async ({ command }) => {
             try {                
-                const response = await dispatcher.sendCommand(command);
-                if(response. status==='ELICITATION_REQUIRED'){
-                    const selectedInstance:ElicitResult = await server.server.elicitInput(response.content);
-                    logger.debug("Elicitation Result" + JSON.stringify(selectedInstance, null, 2));
-                     if (selectedInstance.action == 'accept'&& 
-                        typeof selectedInstance.content === 'object' && 
-                        selectedInstance.content !== null &&
-                        'instance' in selectedInstance.content) {
-                        await dispatcher.resolveElicitation(selectedInstance.content.instance as string);
+                const sendCommmandResult = await dispatcher.sendCommand(command);
+                if(sendCommmandResult.status==='ELICITATION_REQUIRED'){
+                    const elicitContentSchema = z.object({ instance: z.string() });
+                    const elicitResult: ElicitResult = await server.server.elicitInput(sendCommmandResult.content);
+                    logger.debug("Elicitation Result" + JSON.stringify(elicitResult, null, 2));
+                    const parsedElicitContent = elicitContentSchema.safeParse(elicitResult.content);
+                     if (elicitResult.action === 'accept' && parsedElicitContent.success){
+                        await dispatcher.resolveElicitation(parsedElicitContent.data.instance);
                         const response = await dispatcher.sendCommand(command);
                         const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
                         return {
@@ -75,7 +74,7 @@ const createServer = () => {
                         throw new Error("Operation aborted!");
                     }
                 }                     
-                const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
+                const text = [`status: ${sendCommmandResult.status}`, `content: ${sendCommmandResult.content || "(empty)"}`].join('\n');
                 return {
                         content: [{ type: "text", text }] };                        
                 }
@@ -88,6 +87,7 @@ const createServer = () => {
             }
         }
     );
+
     return server;    
 }
 
