@@ -11,7 +11,7 @@ import { createDispatcher } from "./dispatcher.js";
 import { createInstanceManager } from './instance-manager.js';
 import fs from 'fs';
 import path from 'path';
-import { text } from "stream/consumers";
+import { fileURLToPath } from 'url';
 
 const server = new McpServer({
     name: "openmsx-control-server",
@@ -28,18 +28,23 @@ const dispatcher = createDispatcher(logger, connector, instanceManager);
 
 const createServer = () => {
     server.registerResource(
-        'toolGuide',
-        'openmsx-control://guide',
+        'sendCommandGuide',
+        'openmsx-control://sendcommand/guide',
         {
-            title: 'OpenMSX discovery',
-            description: 'Use this resource to learn about the API',
+            title: 'OpenMSX Emulator Discovery Guide',
+            description: 'The authoritative starting point for understanding and exploring the emulator\'s interface. Use it whenever you need to determine available actions, inspect capabilities, or resolve uncertainty about command behavior.',
             mimeType: 'text/markdown'
         },
         async uri => {
-            const targetPath = './src/openmsx-guide.md';        
-            const absolutePath = path.resolve(targetPath);
+            //const targetPath = './res/sendcommand-guide.md';        
+            //const absolutePath = path.resolve(targetPath);
+
+            const filename = fileURLToPath(import.meta.url);
+            const dirname = path.dirname(filename);
+            const guidePath = path.join(dirname, '..', 'res', 'sendcommand-guide.md');
+
             try {
-                const guide = fs.readFileSync(targetPath, 'utf8');
+                const guide = fs.readFileSync(guidePath, 'utf8');
                 return {            
                     contents: [{ 
                         uri: uri.href,                        
@@ -47,7 +52,7 @@ const createServer = () => {
                     }]
                 };
             } catch (err) {
-                logger.error(`Failed to read ${absolutePath} inside resource: ${err}`);
+                logger.error(`Failed to read ${guidePath} inside resource: ${err}`);
                 return { contents: [] };
             }
         }
@@ -56,7 +61,7 @@ const createServer = () => {
         "sendCommand", 
         {
             description: "Sends a command to the openMSX instance.",
-            inputSchema: z.object({ command: z.string().describe("For guidance on how to operate this tool, refer to `openmsx-control://guide`") })
+            inputSchema: z.object({ command: z.string().describe("e.g., 'help', 'help <command>', 'openmsx_info setting', 'help set <setting>', 'machine_info', 'openmsx_info'") })
         },
         async ({ command }) => {
             try {                
