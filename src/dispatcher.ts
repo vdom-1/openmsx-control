@@ -66,8 +66,8 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
             properties: {
                 instance: {
                     type: 'string',
-                    title: 'Socket connection files',
-                    description: 'Choose a socket connection file',
+                    title: 'Choose a socket connection file',
+                    description: 'Socket connection files',
                     oneOf: [
                         ...instances.map(i => ({ const: i.port, title: `socket.${i.pid} (LastModified=${i.lastModified})`  })),
                         { const: 'NEW', title: 'Start fresh instance' }
