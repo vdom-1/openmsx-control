@@ -22,6 +22,7 @@ interface Elicitation {
 
 export type DispatcherResult = 
     | { status: 'SUCCESS'; content: string }
+    | { status: 'FAILURE'; content: string }
     | { status: 'ELICITATION_REQUIRED'; content: Elicitation };
 
 
@@ -93,14 +94,18 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
                 }
             }
             if (attachedInstance) {
-                return { status: 'SUCCESS', content: await connector.sendCommand(command) };
+                const response = await connector.sendCommand(command);
+                const status = response.result === 'ok' ? 'SUCCESS' : 'FAILURE';                
+                return { status, content: response.content };
             }
             const instances = await instanceManager.fetchInstances();
             if (instances.length === 0) {
                 const newInstance = await instanceManager.spawnInstance();
                 await connector.establishConnection(newInstance.port);
                 attachedInstance = newInstance;
-                return { status: 'SUCCESS', content: await connector.sendCommand(command) };
+                const response = await connector.sendCommand(command);
+                const status = response.result === 'ok' ? 'SUCCESS' : 'FAILURE';                
+                return { status, content: response.content };                
             }
             return { status: 'ELICITATION_REQUIRED', content: buildElicitation(instances) };
         }),

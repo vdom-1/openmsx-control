@@ -36,20 +36,13 @@ const createServer = () => {
             mimeType: 'text/markdown'
         },
         async uri => {
-            //const targetPath = './res/sendcommand-guide.md';        
-            //const absolutePath = path.resolve(targetPath);
-
             const filename = fileURLToPath(import.meta.url);
             const dirname = path.dirname(filename);
             const guidePath = path.join(dirname, '..', 'res', 'sendcommand-guide.md');
-
             try {
                 const guide = fs.readFileSync(guidePath, 'utf8');
                 return {            
-                    contents: [{ 
-                        uri: uri.href,                        
-                        text: guide 
-                    }]
+                    contents: [{ uri: uri.href, text: guide }]
                 };
             } catch (err) {
                 logger.error(`Failed to read ${guidePath} inside resource: ${err}`);

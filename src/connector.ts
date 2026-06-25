@@ -5,7 +5,7 @@ import { SSPIAuthenticator } from './sspi-authenticator.js';
 
 export interface Connector {
     on: (event: string, listener: (...args: any[]) => void) => void;    
-    sendCommand: (command: string) => Promise<string>;
+    sendCommand: (command: string) => Promise<{ result: string; content: string }>;
     establishConnection: (port: string) => Promise<void>;
     isConnected (port: string): Promise<boolean>;
 }
@@ -16,19 +16,24 @@ export const createConnector = (
 ): Connector => {
     const emitter = new EventEmitter();
     let client: net.Socket | null = null;
-    const parseResponse = (xml: string): string => {
-        const contentMatch = xml.match(/>([^<]+)<\/reply>/);
-        const rawContent = contentMatch ? contentMatch[1] : null;
-        const decodeEntities = (str: string | null) => {
-            if (!str) return "";
+    const parseResponse = (xml: string): { result: string; content: string } => {
+        const contentMatch = xml.match(/<reply\s+result="([^"]+)"[^>]*>([\s\S]*?)<\/reply>/); // />([^<]+)<\/reply>/
+        const result = contentMatch ? contentMatch[1] : 'unknown';
+        const rawContent = contentMatch ? contentMatch[2] : '';
+
+        const decodeEntities = (str: string) => {            
             return str.replace(/&apos;/g, "'").replace(/&#x0a;/g, "\n").replace(/&quot;/g, '"')
                       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
         };
-        return decodeEntities(rawContent)      
+        return {
+            result,
+            content: decodeEntities(rawContent) 
+        }
+        
         
     };
 
-    const writeCommand = (command: string): Promise<string> => {
+    const writeCommand = (command: string): Promise<{ result: string; content: string }> => {
         return new Promise((resolve, reject) => {
             const handler = (xmlString: string) => {
                 clearTimeout(timeout);
@@ -91,7 +96,7 @@ export const createConnector = (
             emitter.emit('connected',`Successfully connected to port: ${client.remotePort}`);
         },
         
-        async sendCommand(input: string): Promise<string> {
+        async sendCommand(input: string): Promise<{ result: string; content: string }> {
             if (!client || client.destroyed) {
                 throw new Error("Worker is not connected. Dispatcher must handle re-connection.");
             }
