@@ -72,7 +72,7 @@ const createServer = () => {
                         return {
                         content: [{ type: "text", text }] };
                     }else{
-                        throw new Error("Operation aborted! Must select an instance or spawn a new one.");
+                        throw new Error("Operation aborted!");
                     }
                 }                     
                 const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');

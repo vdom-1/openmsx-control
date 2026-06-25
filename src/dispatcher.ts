@@ -60,7 +60,7 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
     };
 
     const buildElicitation = (instances: OpenMSXInstance[]): Elicitation => ({
-        message: "Multiple socket connection files found",
+        message: "Multiple sessions found",
         mode: 'form',
         requestedSchema: {
             type: "object",
@@ -71,7 +71,7 @@ export const createDispatcher = ( logger: Logger, connector: Connector, instance
                     description: 'Socket connection files',
                     oneOf: [
                         ...instances.map(i => ({ const: i.port, title: `socket.${i.pid} (LastModified=${i.lastModified})`  })),
-                        { const: 'NEW', title: 'Start fresh instance' }
+                        { const: 'NEW', title: 'Create new session' }
                     ],
                     default: 'NEW'
                 }

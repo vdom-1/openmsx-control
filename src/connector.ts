@@ -29,25 +29,6 @@ export const createConnector = (
             result,
             content: decodeEntities(rawContent) 
         }
-        
-        
-    };
-
-    const writeCommand = (command: string): Promise<{ result: string; content: string }> => {
-        return new Promise((resolve, reject) => {
-            const handler = (xmlString: string) => {
-                clearTimeout(timeout);
-                emitter.removeListener('reply', handler);
-                resolve(parseResponse(xmlString));
-            };
-            const timeout = setTimeout(() => {
-                emitter.removeListener('reply', handler);
-                reject(new Error(`Command timed out: ${command}`));
-            }, 10000);
-            emitter.once('reply', handler);
-            emitter.emit('command', `<command>${command}</command>`)
-            client!.write(`<command>${command}</command>\n`);
-        });
     };
     
     return {
@@ -96,11 +77,24 @@ export const createConnector = (
             emitter.emit('connected',`Successfully connected to port: ${client.remotePort}`);
         },
         
-        async sendCommand(input: string): Promise<{ result: string; content: string }> {
+        async sendCommand(command: string): Promise<{ result: string; content: string }> {
             if (!client || client.destroyed) {
                 throw new Error("Worker is not connected. Dispatcher must handle re-connection.");
             }
-            return writeCommand(input); 
+            return new Promise((resolve, reject) => {
+                const handler = (xmlString: string) => {
+                    clearTimeout(timeout);
+                    emitter.removeListener('reply', handler);
+                    resolve(parseResponse(xmlString));
+                };
+                const timeout = setTimeout(() => {
+                    emitter.removeListener('reply', handler);
+                    reject(new Error(`Command timed out: ${command}`));
+                }, 10000);
+                emitter.once('reply', handler);
+                emitter.emit('command', `<command>${command}</command>`)
+                client!.write(`<command>${command}</command>\n`);
+            });
         },
 
     };
