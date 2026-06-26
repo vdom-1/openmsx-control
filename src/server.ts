@@ -2,7 +2,6 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ElicitResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
@@ -25,7 +24,7 @@ const instanceManager = createInstanceManager(logger);
 const connector = createConnector(logger, authenticator);
 const dispatcher = createDispatcher(logger, connector, instanceManager);
 
-const createServer = () => {    
+const createServer = () => {   
     server.registerResource(
         'sendCommandGuide',
         'openmsx-control://sendcommand/guide',
@@ -58,23 +57,10 @@ const createServer = () => {
         },
         async ({ command }) => {
             try {                
-                const sendCommmandResult = await dispatcher.sendCommand(command);
-                if(sendCommmandResult.status==='ELICITATION_REQUIRED'){
-                    const elicitContentSchema = z.object({ instance: z.string() });
-                    const elicitResult: ElicitResult = await server.server.elicitInput(sendCommmandResult.content);
-                    logger.debug("Elicitation Result" + JSON.stringify(elicitResult, null, 2));
-                    const parsedElicitContent = elicitContentSchema.safeParse(elicitResult.content);
-                     if (elicitResult.action === 'accept' && parsedElicitContent.success){
-                        await dispatcher.resolveElicitation(parsedElicitContent.data.instance);
-                        const response = await dispatcher.sendCommand(command);
-                        const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
-                        return {
-                        content: [{ type: "text", text }] };
-                    }else{
-                        throw new Error("Operation aborted!");
-                    }
-                }                     
-                const text = [`status: ${sendCommmandResult.status}`, `content: ${sendCommmandResult.content || "(empty)"}`].join('\n');
+                const response = await dispatcher.sendCommand(command, async (elicitationPayload) => {
+                    return await server.server.elicitInput(elicitationPayload);
+                });                            
+                const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
                 return {
                         content: [{ type: "text", text }] };                        
                 }

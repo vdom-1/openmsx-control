@@ -5,7 +5,7 @@ import { SSPIAuthenticator } from './sspi-authenticator.js';
 
 export interface Connector {
     on: (event: string, listener: (...args: any[]) => void) => void;    
-    sendCommand: (command: string) => Promise<{ result: string; content: string }>;
+    sendCommand: (command: string, timeoutMs?: number) => Promise<{ result: string; content: string }>;
     establishConnection: (port: string) => Promise<void>;
     isConnected (port: string): Promise<boolean>;
 }
@@ -76,25 +76,40 @@ export const createConnector = (
             });
             emitter.emit('connected',`Successfully connected to port: ${client.remotePort}`);
         },
-        
-        async sendCommand(command: string): Promise<{ result: string; content: string }> {
+        async sendCommand(command: string, timeoutMs: number = 10000): Promise<{ result: string; content: string }> {
             if (!client || client.destroyed) {
                 throw new Error("Worker is not connected. Dispatcher must handle re-connection.");
             }
-            return new Promise((resolve, reject) => {
-                const handler = (xmlString: string) => {
-                    clearTimeout(timeout);
-                    emitter.removeListener('reply', handler);
-                    resolve(parseResponse(xmlString));
-                };
-                const timeout = setTimeout(() => {
-                    emitter.removeListener('reply', handler);
-                    reject(new Error(`Command timed out: ${command}`));
-                }, 10000);
+
+            let handler: (xmlString: string) => void;
+            let timer: ReturnType<typeof setTimeout> | undefined;
+
+            // 1. Core operation promise
+            const replyPromise = new Promise<{ result: string; content: string }>((resolve) => {
+                handler = (xmlString: string) => resolve(parseResponse(xmlString));
                 emitter.once('reply', handler);
-                emitter.emit('command', `<command>${command}</command>`)
+                emitter.emit('command', `<command>${command}</command>`);
                 client!.write(`<command>${command}</command>\n`);
             });
+
+            // 2. Early exit for infinite timeout (0 or negative)
+            if (timeoutMs <= 0) {
+                return replyPromise;
+            }
+
+            // 3. Independent timeout promise
+            const timeoutPromise = new Promise<never>((_, reject) => {
+                timer = setTimeout(() => reject(new Error(`Command timed out: ${command}`)), timeoutMs);
+            });
+
+            // 4. Centralized execution and house-keeping
+            try {
+                return await Promise.race([replyPromise, timeoutPromise]);
+            } finally {
+                // This block ALWAYS runs when the race finishes, cleans up everything in one spot
+                emitter.removeListener('reply', handler!);
+                if (timer) clearTimeout(timer);
+            }
         },
 
     };
