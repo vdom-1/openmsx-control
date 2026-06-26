@@ -6,8 +6,9 @@ import { z } from "zod";
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
-import { createDispatcher } from "./dispatcher.js";
+import { createTaskQueue } from "./task-queue.js";
 import { createInstanceManager } from './instance-manager.js';
+import { createCommandHandler } from './sendcommand-handler.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,11 +19,13 @@ const server = new McpServer({
 }, {
     capabilities: {}
 });
+
 const logger = createLogger(server);
 const authenticator = createSSPIAuthenticator(logger);
 const instanceManager = createInstanceManager(logger);
 const connector = createConnector(logger, authenticator);
-const dispatcher = createDispatcher(logger, connector, instanceManager);
+const commandHandler = createCommandHandler(logger, connector, instanceManager);
+const taskQueue = createTaskQueue();
 
 const createServer = () => {   
     server.registerResource(
@@ -39,9 +42,7 @@ const createServer = () => {
             const guidePath = path.join(dirname, '..', 'res', 'sendcommand-guide.md');
             try {
                 const guide = fs.readFileSync(guidePath, 'utf8');
-                return {            
-                    contents: [{ uri: uri.href, text: guide }]
-                };
+                return { contents: [{ uri: uri.href, text: guide }] };
             } catch (err) {
                 logger.error(`Failed to read ${guidePath} inside resource: ${err}`);
                 return { contents: [] };
@@ -53,23 +54,24 @@ const createServer = () => {
         "sendCommand", 
         {
             description: "Sends a command to the openMSX instance.",
-            inputSchema: z.object({ command: z.string().describe("e.g., 'help', 'help <command>', 'openmsx_info setting', 'help set <setting>', 'machine_info', 'openmsx_info', 'about<keyword>'") })
+            inputSchema: z.object({ 
+                command: z.string().describe("e.g., 'help', 'help <command>', 'openmsx_info setting', 'help set <setting>', 'machine_info', 'openmsx_info', 'about<keyword>'") 
+            })
         },
         async ({ command }) => {
-            try {                
-                const response = await dispatcher.sendCommand(command, async (elicitationPayload) => {
-                    return await server.server.elicitInput(elicitationPayload);
-                });                            
+            try {
+                const response = await taskQueue.execute(() => 
+                    commandHandler.executeCommand(command, async (elicitationPayload) => {
+                        return await server.server.elicitInput(elicitationPayload);
+                    })
+                );                    
+                                    
                 const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
-                return {
-                        content: [{ type: "text", text }] };                        
-                }
-             catch (error) {
+                return { content: [{ type: "text", text }] }; 
+            } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 logger.error(`Command execution failed: ${message}`);
-                return { 
-                    content: [{ type: "text", text: `Error: ${message}` }] 
-                };
+                return { content: [{ type: "text", text: `Error: ${message}` }] };
             }
         }
     );
