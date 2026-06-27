@@ -17,7 +17,7 @@ const server = new McpServer({
     name: "openmsx-control-server",
     version: "1.0.0"
 }, {
-    capabilities: {}
+    capabilities: {logging: {}, resources: {listChanged: true, subscribe: true}, tools: {listChanged: true}}
 });
 
 const logger = createLogger(server);
@@ -36,7 +36,7 @@ const createServer = () => {
             description: 'The authoritative starting point for understanding and exploring the emulator\'s interface. Use it whenever you need to determine available actions, inspect capabilities, or resolve uncertainty about command behavior.',
             mimeType: 'text/markdown'
         },
-        async uri => {
+        async uri => {            
             const filename = fileURLToPath(import.meta.url);
             const dirname = path.dirname(filename);
             const guidePath = path.join(dirname, '..', 'res', 'sendcommand-guide.md');
@@ -64,8 +64,7 @@ const createServer = () => {
                     commandHandler.executeCommand(command, async (elicitationPayload) => {
                         return await server.server.elicitInput(elicitationPayload);
                     })
-                );                    
-                                    
+                );
                 const text = [`status: ${response.status}`, `content: ${response.content || "(empty)"}`].join('\n');
                 return { content: [{ type: "text", text }] }; 
             } catch (error) {

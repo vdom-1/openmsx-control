@@ -11,16 +11,13 @@ export interface Logger {
 
 export const createLogger = (server: McpServer): Logger => {
   const isDev = process.env.NODE_ENV !== 'production';
-  const emit = async (message: string, level: LogLevel) => {
+  const log = async (message: string, level: LogLevel) => {
     await server.sendLoggingMessage({ level, data: message });
-    if (isDev) {
-      console.error(`[${level.toUpperCase()}] ${message}`);
-    }
   };
   return {
-    info: (message: string) => emit(message, 'info'),
-    warning: (message: string) => emit(message, 'warning'),
-    error: (message: string) => emit(message, 'error'),
-    debug: (message: string) => emit(message, 'debug'),
+    info: (message: string) => log(message, 'info'),
+    warning: (message: string) => log(message, 'warning'),
+    error: (message: string) => log(message, 'error'),
+    debug: (message: string) => log(message, 'debug'),
   };
 };
