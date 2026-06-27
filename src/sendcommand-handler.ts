@@ -43,7 +43,7 @@ export const createCommandHandler = (
                     title: 'Choose a socket connection file',
                     description: 'Socket connection files',
                     oneOf: [
-                        ...instances.map(i => ({ const: i.port, title: `socket.${i.pid} (LastModified=${i.lastModified})`  })),
+                        ...instances.map(i => ({ const: i.port, title: `socket.${i.pid.padEnd(5)} (LastModified=${i.lastModified.toLocaleString()})`  })),
                         { const: 'NEW', title: 'Create new session' }
                     ],
                     default: 'NEW'

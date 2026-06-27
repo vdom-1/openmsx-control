@@ -12,7 +12,7 @@ export interface InstanceManager {
 export interface OpenMSXInstance {
     pid: string;
     port: string;
-    lastModified: string;
+    lastModified: Date;
 }
 
 export const createInstanceManager = (logger: Logger): InstanceManager => {
@@ -29,7 +29,7 @@ export const createInstanceManager = (logger: Logger): InstanceManager => {
                 return {
                     pid: pid,
                     port: fs.readFileSync(filePath, 'utf8').trim(),
-                    lastModified: fs.statSync(filePath).mtime.toLocaleString()
+                    lastModified: fs.statSync(filePath).mtime
                 };
             }
             await new Promise(r => setTimeout(r, 500));
@@ -39,20 +39,20 @@ export const createInstanceManager = (logger: Logger): InstanceManager => {
 
     return { 
 
-        fetchInstances: async (): Promise<OpenMSXInstance[]> => {
-            if (!fs.existsSync(socketDir)) return [];
-            const files = fs.readdirSync(socketDir).filter((f) => f.startsWith('socket.'));        
-            return files.map((file): OpenMSXInstance => {
-                const filePath = path.join(socketDir, file);
-                const stats = fs.statSync(filePath);
-                const port = fs.readFileSync(filePath, 'utf8').trim();            
-                return { 
-                    pid: file.split('.')[1],
-                    port: port,
-                    lastModified: stats.mtime.toLocaleString()
-                };
-            });
-        },
+            fetchInstances: async (): Promise<OpenMSXInstance[]> => {
+                if (!fs.existsSync(socketDir)) return [];
+                const files = fs.readdirSync(socketDir).filter((f) => f.startsWith('socket.'));        
+                return files.map((file): OpenMSXInstance => {
+                    const filePath = path.join(socketDir, file);
+                    const stats = fs.statSync(filePath);
+                    const port = fs.readFileSync(filePath, "utf8").trim();
+                    return {
+                        pid: file.split(".")[1],
+                        port,
+                        lastModified: stats.mtime,
+                    };
+                }).sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+            },
 
         spawnInstance: async (): Promise<OpenMSXInstance> => {
             const exe = process.env.OPENMSX_EXE || 'openmsx.exe';
