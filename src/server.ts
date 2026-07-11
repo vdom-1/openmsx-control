@@ -53,9 +53,9 @@ const createServer = () => {
     server.registerTool(
         "sendCommand", 
         {
-            description: "Sends a command to the openMSX instance.",
+            description: "Sends a command to the openMSX.",
             inputSchema: z.object({ 
-                command: z.string().describe("e.g., 'help', 'help <command>', 'openmsx_info setting', 'help set <setting>', 'machine_info', 'openmsx_info', 'about<keyword>'") 
+                command: z.string().describe("Read `sendCommand-guide` tool resource") 
             })
         },
         async ({ command }) => {
