@@ -32,12 +32,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^25.9.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.5",
     "typescript": "^6.0.3"
   },
   "scripts": {
     "build": "tsc",
-    "launch": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local dist/server.js",
+    "launch": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local dist/server.js --stdio",
+    "serve": "node --env-file=.env.local dist/server.js",
     "prepare": "npm run build"
   },
   "repository": {
