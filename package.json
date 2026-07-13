@@ -27,9 +27,11 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "node-expose-sspi": "^0.1.60",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@modelcontextprotocol/server": "^2.0.0-beta.3",
+    "@modelcontextprotocol/express": "^2.0.0-beta.3",
+    "@modelcontextprotocol/node": "^2.0.0-beta.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -38,11 +40,10 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
-    "build": "tsc",    
+    "build": "tsc",
     "launch-sse": "npm run build && concurrently \"npm run server\" \"npx @modelcontextprotocol/inspector\"",
     "server": "node --env-file=.env.local-sse dist/server.js",
     "launch-stdio": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local-stdio dist/server.js",
-    
     "prepare": "npm run build"
   },
   "repository": {

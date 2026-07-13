@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import express, { type Request, type Response } from 'express';
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js"; 
-import { z } from "zod";
+import { createMcpExpressApp } from "@modelcontextprotocol/express";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import * as z from 'zod/v4';
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
@@ -21,7 +21,7 @@ const taskQueue = createTaskQueue();
 // In-memory state storage tracking active client connection sessions
 interface ActiveSession {
     server: McpServer;
-    transport: StreamableHTTPServerTransport;
+    transport: NodeStreamableHTTPServerTransport;
 }
 const activeSessions = new Map<string, ActiveSession>();
 
@@ -100,6 +100,17 @@ const buildNewServerInstance = () => {
 const app = createMcpExpressApp();
 app.use(express.json());
 
+app.use((req, res, next) => {
+  const host = req.headers.host;
+  
+  // If the request comes from WSL/Docker network, normalize the header 
+  // so the internal MCP Transport validation code sees "localhost" and passes it.
+  if (host && (host.startsWith('172.') || host.startsWith('192.'))) {
+    req.headers.host = 'localhost:3000'; // Match your Express listening port
+  }
+  next();
+});
+
 const handleMcpRoutingRequest = async (req: Request, res: Response) => {
     // 1. Identify or negotiate the session ID context
     let sessionId = req.headers['mcp-session-id'] as string || req.query.sessionId as string;
@@ -115,7 +126,7 @@ const handleMcpRoutingRequest = async (req: Request, res: Response) => {
         }
 
         const fallbackServer = buildNewServerInstance();
-        const fallbackTransport = new StreamableHTTPServerTransport({
+        const fallbackTransport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: () => sessionId
         });
 
