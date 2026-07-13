@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "openmsx-control": {
+      "command": "node",
+      "args": ["C:\\Users\\Victor\\MSX\\workspace\\openmsx-control\\dist\\server.js"],
+      "env": {
+        "OPENMSX_EXE": "C:\\Users\\Victor\\MSX\\devtools\\openmsx-21.0\\openmsx.exe",
+        "OPENMSX_DEFAULT": "C:\\Users\\Victor\\AppData\\Local\\Temp\\openmsx-default",
+        "OPENMSX_HOST": "127.0.0.1"
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "@vdom-1/openmsx-control",
+  "version": "1.0.0",
+  "os": [
+    "win32"
+  ],
+  "description": "Control the openMSX emulator with your AI application using the Model Context Protocol.",
+  "keywords": [
+    "mcp",
+    "ai",
+    "agent",
+    "agentic",
+    "tool",
+    "openmsx",
+    "emulator",
+    "automation"
+  ],
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "openmsx-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "node-expose-sspi": "^0.1.60",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "launch": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local dist/server.js",
+    "prepare": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vdom-1/openmsx-control.git"
+  }
+}
