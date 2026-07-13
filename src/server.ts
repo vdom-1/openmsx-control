@@ -1,34 +1,26 @@
 #!/usr/bin/env node
 
-import express, { type Request, type Response } from 'express';
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
-import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
-import * as z from 'zod/v4';
+import { McpServer } from "@modelcontextprotocol/server";
+import { z } from 'zod';
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
 import { createTaskQueue } from "./task-queue.js";
 import { createInstanceManager } from './instance-manager.js';
 import { createCommandHandler } from './sendcommand-handler.js';
+import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Shared application task queue
-const taskQueue = createTaskQueue();
-
-// In-memory state storage tracking active client connection sessions
 interface ActiveSession {
     server: McpServer;
     transport: NodeStreamableHTTPServerTransport;
 }
-const activeSessions = new Map<string, ActiveSession>();
+const sessions = new Map<string, ActiveSession>();
 
-/**
- * Factory helper that instantiates and pre-configures a fresh, isolated 
- * state context loop package containing an McpServer instance.
- */
 const buildNewServerInstance = () => {
     const server = new McpServer({
         name: "openmsx-control-server",
@@ -46,13 +38,14 @@ const buildNewServerInstance = () => {
     const instanceManager = createInstanceManager(logger);
     const connector = createConnector(logger, authenticator);
     const commandHandler = createCommandHandler(logger, connector, instanceManager);
+    const taskQueue = createTaskQueue();
 
     server.registerResource(
         'sendCommandGuide',
         'openmsx-control://sendcommand/guide',
         {
             title: 'OpenMSX Emulator Discovery Guide',
-            description: 'The authoritative starting point for understanding and exploring the emulator\'s interface.',
+            description: "The authoritative starting point for understanding and exploring the emulator's interface.",
             mimeType: 'text/markdown'
         },
         async uri => {            
@@ -96,76 +89,47 @@ const buildNewServerInstance = () => {
     return server;
 };
 
-// Use the official MCP Express app factory which configures proper host-header/DNS rebinding security
-const app = createMcpExpressApp();
-app.use(express.json());
-
-app.use((req, res, next) => {
-  const host = req.headers.host;
-  
-  // If the request comes from WSL/Docker network, normalize the header 
-  // so the internal MCP Transport validation code sees "localhost" and passes it.
-  if (host && (host.startsWith('172.') || host.startsWith('192.'))) {
-    req.headers.host = 'localhost:3000'; // Match your Express listening port
-  }
-  next();
+const app = createMcpExpressApp({
+    host: '0.0.0.0',
+    allowedHosts: [
+        'localhost',
+        '127.0.0.1',
+        process.env.ALLOWEDHOST || '172.25.80.1'
+    ]
 });
 
-const handleMcpRoutingRequest = async (req: Request, res: Response) => {
-    // 1. Identify or negotiate the session ID context
-    let sessionId = req.headers['mcp-session-id'] as string || req.query.sessionId as string;
-    const isInitialize = req.body && req.body.method === 'initialize';
+app.all('/mcp', async (req, res) => {
+    const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
+    let currentSession = sessionId ? sessions.get(sessionId) : undefined;
 
-    let currentSession = sessionId ? activeSessions.get(sessionId) : undefined;
-
-    // 2. If it's a new initialize request or session isn't found, spin up a brand new state block
-    if (isInitialize || !currentSession) {
-        // Generate a new key if the client didn't supply one
-        if (!sessionId) {
-            sessionId = Math.random().toString(36).substring(2, 15);
-        }
-
-        const fallbackServer = buildNewServerInstance();
-        const fallbackTransport = new NodeStreamableHTTPServerTransport({
-            sessionIdGenerator: () => sessionId
+    if (req.body?.method === 'initialize' && !currentSession) {
+        const targetId = sessionId || randomUUID();
+        const server = buildNewServerInstance();
+        
+        const transport = new NodeStreamableHTTPServerTransport({
+            sessionIdGenerator: () => targetId,
+            onsessionclosed: () => {
+                server.close();
+                sessions.delete(targetId);
+            }
         });
 
-        await fallbackServer.connect(fallbackTransport);
-        
-        currentSession = { server: fallbackServer, transport: fallbackTransport };
-        activeSessions.set(sessionId, currentSession);
+        await server.connect(transport);
+        currentSession = { server, transport };
+        sessions.set(targetId, currentSession);
     }
 
-    // Ensure the response lets the client know which session context is active
-    res.setHeader('Mcp-Session-Id', sessionId);
-
-    // 3. Clean up memory handles on client drop/termination
-    res.on('close', () => {
-        if (req.method === 'DELETE' && sessionId) {
-            currentSession?.transport.close();
-            currentSession?.server.close();
-            activeSessions.delete(sessionId);
-        }
-    });
-
-    // 4. Delegate runtime execution directly to the matching isolated session transport
-    try {
-        await currentSession.transport.handleRequest(req, res, req.body);
-    } catch (error) {
-        console.error(`Error handling stateful request for session ${sessionId}:`, error);
-        if (!res.headersSent) {
-            res.status(500).json({
-                jsonrpc: '2.0',
-                error: { code: -32603, message: 'Internal server error' },
-                id: null
-            });
-        }
+    if (!currentSession) {
+        return res.status(404).json({
+            jsonrpc: "2.0",
+            error: { code: -32002, message: "Session not found or expired" },
+            id: req.body?.id || null
+        });
     }
-};
 
-app.post('/mcp', handleMcpRoutingRequest);
-app.get('/mcp', handleMcpRoutingRequest);
-app.delete('/mcp', handleMcpRoutingRequest);
+    await currentSession.transport.handleRequest(req, res, req.body);
+});
+
 const HOST = '0.0.0.0';
 const PORT = 3000;
 app.listen(PORT, HOST, () => {
@@ -173,8 +137,8 @@ app.listen(PORT, HOST, () => {
 });
 
 process.on('SIGINT', () => {
-    console.log('Shutting down server...');
-    for (const [id, session] of activeSessions.entries()) {
+    console.log('Shutting down server loops...');
+    for (const [id, session] of sessions.entries()) {
         session.transport.close();
         session.server.close();
     }

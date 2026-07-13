@@ -27,11 +27,11 @@
     "access": "public"
   },
   "dependencies": {
-    "node-expose-sspi": "^0.1.60",
-    "zod": "^4.4.3",
-    "@modelcontextprotocol/server": "^2.0.0-beta.3",
     "@modelcontextprotocol/express": "^2.0.0-beta.3",
-    "@modelcontextprotocol/node": "^2.0.0-beta.3"
+    "@modelcontextprotocol/node": "^2.0.0-beta.3",
+    "@modelcontextprotocol/server": "^2.0.0-beta.3",
+    "node-expose-sspi": "^0.1.60",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
