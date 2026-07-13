@@ -155,9 +155,9 @@ const handleMcpRoutingRequest = async (req: Request, res: Response) => {
 app.post('/mcp', handleMcpRoutingRequest);
 app.get('/mcp', handleMcpRoutingRequest);
 app.delete('/mcp', handleMcpRoutingRequest);
-
+const HOST = '0.0.0.0';
 const PORT = 3000;
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
     console.log(`Stateful Multi-Session Streamable HTTP Server listening on port ${PORT}`);
 });
 

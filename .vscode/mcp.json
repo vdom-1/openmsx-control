@@ -1,7 +1,6 @@
 {
-	"inputs": [],
 	"servers": {
-		"my-mcp-server-e9452f33": {
+		"openmsx-control": {
 			"url": "http://localhost:3000/mcp",
 			"type": "http"
 		}
