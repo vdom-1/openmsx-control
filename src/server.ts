@@ -21,7 +21,7 @@ interface ActiveSession {
 }
 const sessions = new Map<string, ActiveSession>();
 
-const buildNewServerInstance = () => {
+const createServerInstance = () => {
     const server = new McpServer({
         name: "openmsx-control-server",
         version: "1.0.0"
@@ -71,7 +71,7 @@ const buildNewServerInstance = () => {
             })
         },
         async ({ command }) => {
-            try {
+            try {                 
                 const response = await taskQueue.execute(() => 
                     commandHandler.executeCommand(command, async (elicitationPayload) => {
                         return await server.server.elicitInput(elicitationPayload);
@@ -102,13 +102,17 @@ app.all('/mcp', async (req, res) => {
     const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
     let currentSession = sessionId ? sessions.get(sessionId) : undefined;
 
-    if (req.body?.method === 'initialize' && !currentSession) {
+    const isGetRequest = req.method === 'GET';
+    const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
+
+    if ((isGetRequest || isInitializePost) && !currentSession) {
         const targetId = sessionId || randomUUID();
-        const server = buildNewServerInstance();
+        const server = createServerInstance();
         
         const transport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: () => targetId,
             onsessionclosed: () => {
+                console.log(`Closing session: ${targetId}`);
                 server.close();
                 sessions.delete(targetId);
             }
@@ -133,11 +137,11 @@ app.all('/mcp', async (req, res) => {
 const HOST = '0.0.0.0';
 const PORT = 3000;
 app.listen(PORT, HOST, () => {
-    console.log(`Stateful Multi-Session Streamable HTTP Server listening on port ${PORT}`);
+    console.log(`openmsx-control server listening on port ${PORT}`);
 });
 
 process.on('SIGINT', () => {
-    console.log('Shutting down server loops...');
+    console.log('Shutting down server...');
     for (const [id, session] of sessions.entries()) {
         session.transport.close();
         session.server.close();
