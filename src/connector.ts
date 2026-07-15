@@ -1,6 +1,5 @@
 import net from 'net';
 import { EventEmitter } from 'events';
-import { Logger } from './logger.js';
 import { SSPIAuthenticator } from './sspi-authenticator.js';
 
 export interface Connector {
@@ -11,7 +10,6 @@ export interface Connector {
 }
 
 export const createConnector = (
-    logger: Logger, 
     authenticator: SSPIAuthenticator,
 ): Connector => {
     const emitter = new EventEmitter();

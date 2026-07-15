@@ -5,7 +5,6 @@ import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio"; // SDK v2 Stdio Runner
 import { z } from 'zod';
-import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
 import { createTaskQueue } from "./task-queue.js";
@@ -34,11 +33,10 @@ const createServerInstance = () => {
         }
     });
 
-    const logger = createLogger(server);
-    const authenticator = createSSPIAuthenticator(logger);
-    const instanceManager = createInstanceManager(logger);
-    const connector = createConnector(logger, authenticator);
-    const commandHandler = createCommandHandler(logger, connector, instanceManager);
+    const authenticator = createSSPIAuthenticator();
+    const instanceManager = createInstanceManager();
+    const connector = createConnector(authenticator);
+    const commandHandler = createCommandHandler(connector, instanceManager);
     const taskQueue = createTaskQueue();
 
     server.registerResource(
@@ -57,7 +55,7 @@ const createServerInstance = () => {
                 const guide = fs.readFileSync(guidePath, 'utf8');
                 return { contents: [{ uri: uri.href, text: guide }] };
             } catch (err) {
-                logger.error(`Failed to read ${guidePath} inside resource: ${err}`);
+                console.error(`Failed to read ${guidePath} inside resource: ${err}`);
                 return { contents: [] };
             }
         }
@@ -115,7 +113,7 @@ function startHttpServer() {
             const transport = new NodeStreamableHTTPServerTransport({
                 sessionIdGenerator: () => targetId,
                 onsessionclosed: () => {
-                    console.log(`Closing session: ${targetId}`);
+                    console.error(`Closing session: ${targetId}`);
                     server.close();
                     sessions.delete(targetId);
                 }
@@ -140,11 +138,11 @@ function startHttpServer() {
     const HOST = '0.0.0.0';
     const PORT = 3000;
     app.listen(PORT, HOST, () => {
-        console.log(`openmsx-control server listening on port ${PORT}`);
+        console.error(`openmsx-control server listening on port ${PORT}`);
     });
 
     process.on('SIGINT', () => {
-        console.log('Shutting down server...');
+        console.error('Shutting down server...');
         for (const [id, session] of sessions.entries()) {
             session.transport.close();
             session.server.close();
