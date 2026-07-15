@@ -41,9 +41,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "launch-sse": "npm run build && concurrently \"npm run server\" \"npx @modelcontextprotocol/inspector\"",
-    "server": "node --env-file=.env.local-sse dist/server.js",
-    "launch-stdio": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local-stdio dist/server.js",
+    "launch-http": "npm run build && concurrently \"npm run server\" \"npx @modelcontextprotocol/inspector\"",
+    "server": "node --env-file=.env.local-http dist/server.js",
+    "launch-stdio": "npm run build && npx @modelcontextprotocol/inspector node --env-file=.env.local-stdio  dist/server.js",
     "prepare": "npm run build"
   },
   "repository": {
