@@ -3,6 +3,7 @@
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio"; // SDK v2 Stdio Runner
 import { z } from 'zod';
 import { createLogger } from "./logger.js";
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
@@ -71,7 +72,7 @@ const createServerInstance = () => {
             })
         },
         async ({ command }) => {
-            try {                 
+            try {                
                 const response = await taskQueue.execute(() => 
                     commandHandler.executeCommand(command, async (elicitationPayload) => {
                         return await server.server.elicitInput(elicitationPayload);
@@ -89,62 +90,79 @@ const createServerInstance = () => {
     return server;
 };
 
-const app = createMcpExpressApp({
-    host: '0.0.0.0',
-    allowedHosts: [
-        'localhost',
-        '127.0.0.1',
-        process.env.ALLOWEDHOST || '172.25.80.1'
-    ]
-});
+// --- HTTP Transport Setup ---
+function startHttpServer() {
+    const app = createMcpExpressApp({
+        host: '0.0.0.0',
+        allowedHosts: [
+            'localhost',
+            '127.0.0.1',
+            process.env.ALLOWEDHOST || '172.25.80.1'
+        ]
+    });
 
-app.all('/mcp', async (req, res) => {
-    const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
-    let currentSession = sessionId ? sessions.get(sessionId) : undefined;
+    app.all('/mcp', async (req, res) => {
+        const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
+        let currentSession = sessionId ? sessions.get(sessionId) : undefined;
 
-    const isGetRequest = req.method === 'GET';
-    const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
+        const isGetRequest = req.method === 'GET';
+        const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
 
-    if ((isGetRequest || isInitializePost) && !currentSession) {
-        const targetId = sessionId || randomUUID();
-        const server = createServerInstance();
-        
-        const transport = new NodeStreamableHTTPServerTransport({
-            sessionIdGenerator: () => targetId,
-            onsessionclosed: () => {
-                console.log(`Closing session: ${targetId}`);
-                server.close();
-                sessions.delete(targetId);
-            }
-        });
+        if ((isGetRequest || isInitializePost) && !currentSession) {
+            const targetId = sessionId || randomUUID();
+            const server = createServerInstance();
+            
+            const transport = new NodeStreamableHTTPServerTransport({
+                sessionIdGenerator: () => targetId,
+                onsessionclosed: () => {
+                    console.log(`Closing session: ${targetId}`);
+                    server.close();
+                    sessions.delete(targetId);
+                }
+            });
 
-        await server.connect(transport);
-        currentSession = { server, transport };
-        sessions.set(targetId, currentSession);
-    }
+            await server.connect(transport);
+            currentSession = { server, transport };
+            sessions.set(targetId, currentSession);
+        }
 
-    if (!currentSession) {
-        return res.status(404).json({
-            jsonrpc: "2.0",
-            error: { code: -32002, message: "Session not found or expired" },
-            id: req.body?.id || null
-        });
-    }
+        if (!currentSession) {
+            return res.status(404).json({
+                jsonrpc: "2.0",
+                error: { code: -32002, message: "Session not found or expired" },
+                id: req.body?.id || null
+            });
+        }
 
-    await currentSession.transport.handleRequest(req, res, req.body);
-});
+        await currentSession.transport.handleRequest(req, res, req.body);
+    });
 
-const HOST = '0.0.0.0';
-const PORT = 3000;
-app.listen(PORT, HOST, () => {
-    console.log(`openmsx-control server listening on port ${PORT}`);
-});
+    const HOST = '0.0.0.0';
+    const PORT = 3000;
+    app.listen(PORT, HOST, () => {
+        console.log(`openmsx-control server listening on port ${PORT}`);
+    });
 
-process.on('SIGINT', () => {
-    console.log('Shutting down server...');
-    for (const [id, session] of sessions.entries()) {
-        session.transport.close();
-        session.server.close();
-    }
-    process.exit(0);
-});
+    process.on('SIGINT', () => {
+        console.log('Shutting down server...');
+        for (const [id, session] of sessions.entries()) {
+            session.transport.close();
+            session.server.close();
+        }
+        process.exit(0);
+    });
+}
+
+// --- Stdio Transport Setup (SDK v2) ---
+function startStdioServer() {
+    console.error("openmsx-control server running on stdio");
+    serveStdio(createServerInstance);
+}
+
+const useStdio = process.env.TRANSPORT?.toLowerCase() === 'stdio';
+
+if (useStdio) {
+    startStdioServer();
+} else {
+    startHttpServer();
+}
