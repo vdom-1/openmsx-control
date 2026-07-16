@@ -15,6 +15,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+const taskQueue = createTaskQueue();
+
 interface ActiveSession {
     server: McpServer;
     transport: NodeStreamableHTTPServerTransport;
@@ -37,7 +39,7 @@ const createServerInstance = () => {
     const instanceManager = createInstanceManager();
     const connector = createConnector(authenticator);
     const commandHandler = createCommandHandler(connector, instanceManager);
-    const taskQueue = createTaskQueue();
+    
 
     server.registerResource(
         'sendCommandGuide',
@@ -95,7 +97,7 @@ function startHttpServer() {
         allowedHosts: [
             'localhost',
             '127.0.0.1',
-            process.env.ALLOWEDHOST || '172.25.80.1'
+            process.env.ALLOWEDHOST || '172.26.192.1'
         ]
     });
 
