@@ -1,4 +1,0 @@
-{
-    "chat.utilitySmallModel": "customendpoint/gemma-4-26B-A4B-it-qat",
-    "chat.utilityModel": "customendpoint/gemma-4-26B-A4B-it-qat"
-}

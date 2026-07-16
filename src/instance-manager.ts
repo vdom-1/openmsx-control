@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { Logger } from './logger.js';
 import { spawn, ChildProcess } from 'child_process';
 
 export interface InstanceManager {
@@ -15,17 +14,17 @@ export interface OpenMSXInstance {
     lastModified: Date;
 }
 
-export const createInstanceManager = (logger: Logger): InstanceManager => {
+export const createInstanceManager = (): InstanceManager => {
     const socketDir = process.env.OPENMSX_DEFAULT || path.join(os.tmpdir(), 'openmsx-default');
 
     const waitForSocketFile = async (pid: string, timeoutMs: number = 10000): Promise<OpenMSXInstance> => {
         const start = Date.now();
         const expectedFilename = `socket.${pid}`;
         const filePath = path.join(socketDir, expectedFilename);
-        logger.debug(`Waiting for specific socket file: ${expectedFilename}`);
+        console.error(`Waiting for specific socket file: ${expectedFilename}`);
         while (Date.now() - start < timeoutMs) {
             if (fs.existsSync(filePath)) {
-                logger.debug(`Socket file found: ${expectedFilename}`);
+                console.error(`Socket file found: ${expectedFilename}`);
                 return {
                     pid: pid,
                     port: fs.readFileSync(filePath, 'utf8').trim(),
@@ -62,7 +61,7 @@ export const createInstanceManager = (logger: Logger): InstanceManager => {
             if(!pid){
                 throw new Error("Failed to spawn new instance");
             }
-            logger.info(`New instance PID = ${pid}`)      
+            console.error(`New instance PID = ${pid}`)      
             return await waitForSocketFile(pid); 
         }
 

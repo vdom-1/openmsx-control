@@ -1,6 +1,5 @@
 import nes from 'node-expose-sspi';
 import net from 'net';
-import { Logger } from './logger.js';
 
 export interface SSPIAuthenticator {
   performAuth: (socket: net.Socket) => Promise<void>;
@@ -33,7 +32,7 @@ const createStreamReader = (socket: net.Socket) => {
     };
 };
 
-export const createSSPIAuthenticator = (logger: Logger): SSPIAuthenticator => {
+export const createSSPIAuthenticator = (): SSPIAuthenticator => {
     return {
         performAuth: async (socket: net.Socket): Promise<void> => {
             const reader = createStreamReader(socket);

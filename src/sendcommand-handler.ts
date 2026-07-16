@@ -1,4 +1,3 @@
-import { Logger } from './logger.js';
 import { Connector } from "./connector.js";
 import { InstanceManager, OpenMSXInstance } from './instance-manager.js';
 
@@ -18,7 +17,6 @@ export type DispatcherResult =
     | { status: 'ELICITATION_REQUIRED'; content: Elicitation };
 
 export const createCommandHandler = (
-    logger: Logger, 
     connector: Connector, 
     instanceManager: InstanceManager
 ) => {
@@ -58,7 +56,7 @@ export const createCommandHandler = (
             command: string, 
             elicitExecutor: (elicitation: Elicitation) => Promise<{ action: string; content?: any }>
         ): Promise<DispatcherResult> => {
-            logger.info(`Attached instance ${JSON.stringify(attachedInstance)}`);
+            console.error(`Attached instance ${JSON.stringify(attachedInstance)}`);
             
             // 1. Try connecting to the cached/attached instance
             if (attachedInstance) {
@@ -67,7 +65,7 @@ export const createCommandHandler = (
                     const response = await connector.sendCommand(command);
                     return { status: response.result === 'ok' ? 'SUCCESS' : 'FAILURE', content: response.content };
                 } catch (e) {
-                    logger.warning(`Failed to establish connection to the attached instance. Clearing cache.`);
+                    console.error(`Failed to establish connection to the attached instance. Clearing cache.`);
                     attachedInstance = null;
                 }
             }
@@ -77,13 +75,13 @@ export const createCommandHandler = (
             
             // Case A: Zero instances exist on the system -> Cleanly spawn a fresh one
             if (instances.length === 0) {
-                logger.info("No instances found on system. Spawning fresh.");
+                console.error("No instances found on system. Spawning fresh.");
                 return await spawnNewAndConnect(command);
             }
             
             // Case B: Instances are present -> Present them ALL to the user blindly via elicitation
             try {
-                logger.info(`Instances found (${instances.length}). Sending elicitation form containing all files.`);
+                console.error(`Instances found (${instances.length}). Sending elicitation form containing all files.`);
                 const elicitationPayload = buildElicitation(instances);
                 const elicitResult = await elicitExecutor(elicitationPayload);
                 
@@ -112,7 +110,7 @@ export const createCommandHandler = (
 
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
-                logger.error(`Execution sequence failed: ${message}`);
+                console.error(`Execution sequence failed: ${message}`);
                 
                 // Returns a explicit failure status to the agent/user.
                 // On the next tool execution loop, the stale instance will still be there to choose again.
