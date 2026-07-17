@@ -104,37 +104,27 @@ function startHttpServer() {
     app.all('/mcp', async (req, res) => {
     const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
     let currentSession = sessionId ? sessions.get(sessionId) : undefined;
-
     const isGetRequest = req.method === 'GET';
     const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
-
-    // 1. Only create a new session if it's a GET (SSE setup), an 'initialize' POST, 
-    // or if the client didn't supply a session ID at all.
     if (!currentSession && (isGetRequest || isInitializePost || !sessionId)) {
-        // Reuse the incoming sessionId if it exists, otherwise generate a new one
         const targetId = sessionId || randomUUID();
         const server = createServerInstance();
-        
         const transport = new NodeStreamableHTTPServerTransport({
             sessionIdGenerator: () => targetId,
             onsessionclosed: () => {
-                console.log(`Closing session: ${targetId}`);
+                console.log(`[openmsx-control] Closing session: ${targetId}`);
                 server.close();
                 sessions.delete(targetId);
             }
         });
-
         await server.connect(transport);
         currentSession = { server, transport };            
         sessions.set(targetId, currentSession);
     }
-
-    // 2. If it's a stale POST request with an old ID, we MUST return a 404.
-    // This allows the AI client to trigger its built-in auto-reconnect engine cleanly.
     if (!currentSession) {
         return res.status(404).json({
             jsonrpc: "2.0",
-            error: { code: -32002, message: "Session not found or expired" },
+            error: { code: -32002, message: "Session not found or expired. Start new mcp session-" },
             id: req.body?.id || null
         });
     }        
