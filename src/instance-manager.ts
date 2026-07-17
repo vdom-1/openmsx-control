@@ -21,10 +21,10 @@ export const createInstanceManager = (): InstanceManager => {
         const start = Date.now();
         const expectedFilename = `socket.${pid}`;
         const filePath = path.join(socketDir, expectedFilename);
-        console.error(`Waiting for specific socket file: ${expectedFilename}`);
+        console.error(`[openmsx-control] Waiting for socket file: '${filePath}'`);
         while (Date.now() - start < timeoutMs) {
             if (fs.existsSync(filePath)) {
-                console.error(`Socket file found: ${expectedFilename}`);
+                console.error(`[openmsx-control] Socket file found: '${filePath}'`);
                 return {
                     pid: pid,
                     port: fs.readFileSync(filePath, 'utf8').trim(),
@@ -33,7 +33,7 @@ export const createInstanceManager = (): InstanceManager => {
             }
             await new Promise(r => setTimeout(r, 500));
         }
-        throw new Error(`Timeout: Socket file ${expectedFilename} never appeared.`);
+        throw new Error(`TIMEOUT: Socket file '${filePath}' never appeared.`);
     };
 
     return { 
@@ -61,7 +61,7 @@ export const createInstanceManager = (): InstanceManager => {
             if(!pid){
                 throw new Error("Failed to spawn new instance");
             }
-            console.error(`New instance PID = ${pid}`)      
+            console.error(`[openmsx-control] Instance PID: ${pid}`)      
             return await waitForSocketFile(pid); 
         }
 

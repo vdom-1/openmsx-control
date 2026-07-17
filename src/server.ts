@@ -3,7 +3,7 @@
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
-import { serveStdio } from "@modelcontextprotocol/server/stdio"; // SDK v2 Stdio Runner
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { z } from 'zod';
 import { createSSPIAuthenticator } from "./sspi-authenticator.js";
 import { createConnector } from "./connector.js";
@@ -97,54 +97,59 @@ function startHttpServer() {
         allowedHosts: [
             'localhost',
             '127.0.0.1',
-            process.env.ALLOWEDHOST || '172.26.192.1'
+            process.env.ALLOWEDHOST || '0.0.0.0'
         ]
     });
 
     app.all('/mcp', async (req, res) => {
-        const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
-        let currentSession = sessionId ? sessions.get(sessionId) : undefined;
+    const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
+    let currentSession = sessionId ? sessions.get(sessionId) : undefined;
 
-        const isGetRequest = req.method === 'GET';
-        const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
+    const isGetRequest = req.method === 'GET';
+    const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
 
-        if ((isGetRequest || isInitializePost) && !currentSession) {
-            const targetId = sessionId || randomUUID();
-            const server = createServerInstance();
-            
-            const transport = new NodeStreamableHTTPServerTransport({
-                sessionIdGenerator: () => targetId,
-                onsessionclosed: () => {
-                    console.error(`Closing session: ${targetId}`);
-                    server.close();
-                    sessions.delete(targetId);
-                }
-            });
+    // 1. Only create a new session if it's a GET (SSE setup), an 'initialize' POST, 
+    // or if the client didn't supply a session ID at all.
+    if (!currentSession && (isGetRequest || isInitializePost || !sessionId)) {
+        // Reuse the incoming sessionId if it exists, otherwise generate a new one
+        const targetId = sessionId || randomUUID();
+        const server = createServerInstance();
+        
+        const transport = new NodeStreamableHTTPServerTransport({
+            sessionIdGenerator: () => targetId,
+            onsessionclosed: () => {
+                console.log(`Closing session: ${targetId}`);
+                server.close();
+                sessions.delete(targetId);
+            }
+        });
 
-            await server.connect(transport);
-            currentSession = { server, transport };
-            sessions.set(targetId, currentSession);
-        }
+        await server.connect(transport);
+        currentSession = { server, transport };            
+        sessions.set(targetId, currentSession);
+    }
 
-        if (!currentSession) {
-            return res.status(404).json({
-                jsonrpc: "2.0",
-                error: { code: -32002, message: "Session not found or expired" },
-                id: req.body?.id || null
-            });
-        }
+    // 2. If it's a stale POST request with an old ID, we MUST return a 404.
+    // This allows the AI client to trigger its built-in auto-reconnect engine cleanly.
+    if (!currentSession) {
+        return res.status(404).json({
+            jsonrpc: "2.0",
+            error: { code: -32002, message: "Session not found or expired" },
+            id: req.body?.id || null
+        });
+    }        
 
-        await currentSession.transport.handleRequest(req, res, req.body);
-    });
+    console.log(`[openmsx-control] mcp-session-id: ${sessionId || 'new-session'}`);
+    await currentSession.transport.handleRequest(req, res, req.body);
+});
 
-    const HOST = '0.0.0.0';
     const PORT = 3000;
-    app.listen(PORT, HOST, () => {
-        console.error(`openmsx-control server listening on port ${PORT}`);
+    app.listen(PORT, () => {
+        console.log(`[openmsx-control] Listening on port ${PORT}`);
     });
 
     process.on('SIGINT', () => {
-        console.error('Shutting down server...');
+        console.log('[openmsx-control] Shutting down server...');
         for (const [id, session] of sessions.entries()) {
             session.transport.close();
             session.server.close();
@@ -153,9 +158,9 @@ function startHttpServer() {
     });
 }
 
-// --- Stdio Transport Setup (SDK v2) ---
+// --- Stdio Transport Setup ---
 function startStdioServer() {
-    console.error("openmsx-control server running on stdio");
+    console.error("[openmsx-control] Running on stdio");
     serveStdio(createServerInstance);
 }
 

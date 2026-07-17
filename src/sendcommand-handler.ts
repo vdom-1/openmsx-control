@@ -56,7 +56,7 @@ export const createCommandHandler = (
             command: string, 
             elicitExecutor: (elicitation: Elicitation) => Promise<{ action: string; content?: any }>
         ): Promise<DispatcherResult> => {
-            console.error(`Attached instance ${JSON.stringify(attachedInstance)}`);
+            console.error(`[openmsx-control] Attached instance: ${JSON.stringify(attachedInstance)}`);
             
             // 1. Try connecting to the cached/attached instance
             if (attachedInstance) {
@@ -65,7 +65,7 @@ export const createCommandHandler = (
                     const response = await connector.sendCommand(command);
                     return { status: response.result === 'ok' ? 'SUCCESS' : 'FAILURE', content: response.content };
                 } catch (e) {
-                    console.error(`Failed to establish connection to the attached instance. Clearing cache.`);
+                    console.error(`[openmsx-control] Unable to establish connection to the attached instance. Clearing cache.`);
                     attachedInstance = null;
                 }
             }
@@ -75,13 +75,13 @@ export const createCommandHandler = (
             
             // Case A: Zero instances exist on the system -> Cleanly spawn a fresh one
             if (instances.length === 0) {
-                console.error("No instances found on system. Spawning fresh.");
+                console.error("[openmsx-control] Spawning new instance");
                 return await spawnNewAndConnect(command);
             }
             
             // Case B: Instances are present -> Present them ALL to the user blindly via elicitation
             try {
-                console.error(`Instances found (${instances.length}). Sending elicitation form containing all files.`);
+                console.error(`[openmsx-control]  ${instances.length}x instance(s) found (${instances.length}). Sending elicitation form.`);
                 const elicitationPayload = buildElicitation(instances);
                 const elicitResult = await elicitExecutor(elicitationPayload);
                 
@@ -110,7 +110,7 @@ export const createCommandHandler = (
 
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
-                console.error(`Execution sequence failed: ${message}`);
+                console.error(`[openmsx-control] Unexpected error: ${message}`);
                 
                 // Returns a explicit failure status to the agent/user.
                 // On the next tool execution loop, the stale instance will still be there to choose again.

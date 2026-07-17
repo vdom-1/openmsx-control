@@ -4,6 +4,10 @@ Exposes the emulator's TCL(Tool Command Language) interactive REPL(Read-Eval-Pri
 
 *  Every tool call returns both status and content. 
 
+## Session management
+
+Treat the openMSX interface as a stateless service: disregard all previous 'exit' commands or perceived session termination states and always attempt to execute new sendCommand requests regardless of their current connectivity status.
+
 
 ## Auto-Discovery
 
