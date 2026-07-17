@@ -102,36 +102,35 @@ function startHttpServer() {
     });
 
     app.all('/mcp', async (req, res) => {
-    const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
-    let currentSession = sessionId ? sessions.get(sessionId) : undefined;
-    const isGetRequest = req.method === 'GET';
-    const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
-    if (!currentSession && (isGetRequest || isInitializePost || !sessionId)) {
-        const targetId = sessionId || randomUUID();
-        const server = createServerInstance();
-        const transport = new NodeStreamableHTTPServerTransport({
-            sessionIdGenerator: () => targetId,
-            onsessionclosed: () => {
-                console.log(`[openmsx-control] Closing session: ${targetId}`);
-                server.close();
-                sessions.delete(targetId);
-            }
-        });
-        await server.connect(transport);
-        currentSession = { server, transport };            
-        sessions.set(targetId, currentSession);
-    }
-    if (!currentSession) {
-        return res.status(404).json({
-            jsonrpc: "2.0",
-            error: { code: -32002, message: "Session not found or expired. Start new mcp session-" },
-            id: req.body?.id || null
-        });
-    }        
-
-    console.log(`[openmsx-control] mcp-session-id: ${sessionId || 'new-session'}`);
-    await currentSession.transport.handleRequest(req, res, req.body);
-});
+        const sessionId = (req.headers['mcp-session-id'] || req.query.sessionId) as string;
+        let currentSession = sessionId ? sessions.get(sessionId) : undefined;
+        const isGetRequest = req.method === 'GET';
+        const isInitializePost = req.method === 'POST' && req.body?.method === 'initialize';
+        if (!currentSession && (isGetRequest || isInitializePost || !sessionId)) {
+            const targetId = sessionId || randomUUID();
+            const server = createServerInstance();
+            const transport = new NodeStreamableHTTPServerTransport({
+                sessionIdGenerator: () => targetId,
+                onsessionclosed: () => {
+                    console.log(`[openmsx-control] Closing session: ${targetId}`);
+                    server.close();
+                    sessions.delete(targetId);
+                }
+            });
+            await server.connect(transport);
+            currentSession = { server, transport };            
+            sessions.set(targetId, currentSession);
+        }
+        if (!currentSession) {
+            return res.status(404).json({
+                jsonrpc: "2.0",
+                error: { code: -32002, message: "Session not found or expired." },
+                id: req.body?.id || null
+            });
+        }
+        console.log(`[openmsx-control] mcp-session-id: ${sessionId || 'new-session'}`);
+        await currentSession.transport.handleRequest(req, res, req.body);
+    });
 
     const PORT = 3000;
     app.listen(PORT, () => {

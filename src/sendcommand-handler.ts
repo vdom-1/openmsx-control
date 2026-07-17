@@ -81,7 +81,7 @@ export const createCommandHandler = (
             
             // Case B: Instances are present -> Present them ALL to the user blindly via elicitation
             try {
-                console.error(`[openmsx-control]  ${instances.length}x instance(s) found (${instances.length}). Sending elicitation form.`);
+                console.error(`[openmsx-control] ${instances.length}x instance(s) found. Sending elicitation form.`);
                 const elicitationPayload = buildElicitation(instances);
                 const elicitResult = await elicitExecutor(elicitationPayload);
                 
