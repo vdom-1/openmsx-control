@@ -3,7 +3,7 @@
     "openmsx-control": {
       "command": "node",
       "type": "stdio",
-      "args": ["C:/Users/Victor/MSX/workspace/openmsx-control/dist/server.js"],
+      "args": ["C:/Users/Victor/MSX/workspace/openmsx-control/dist/index.js"],
       "env": {
         "OPENMSX_EXE": "C:/Users/Victor/MSX/devtools/openmsx-21.0/openmsx.exe",
         "OPENMSX_DEFAULT": "C:/Users/Victor/AppData/Local/Temp/openmsx-default",

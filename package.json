@@ -42,7 +42,7 @@
   "scripts": {
     "build": "tsc",
     "launch-http": "npm run build && concurrently \"npm run server\" \"npx @modelcontextprotocol/inspector\"",
-    "server": "node --env-file=.env.local-http dist/server.js",
+    "server": "node --env-file=.env.local-http dist/index.js",
     "launch-stdio": "npm run build && npx @modelcontextprotocol/inspector --config ./mcp-stdio.json --server openmsx-control",
     "prepare": "npm run build"
   },

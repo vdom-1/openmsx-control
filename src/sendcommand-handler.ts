@@ -11,7 +11,7 @@ export interface Elicitation {
     };
 }
 
-export type DispatcherResult = 
+export type CommandResult = 
     | { status: 'SUCCESS'; content: string }
     | { status: 'FAILURE'; content: string }
     | { status: 'ELICITATION_REQUIRED'; content: Elicitation };
@@ -22,7 +22,7 @@ export const createCommandHandler = (
 ) => {
     let attachedInstance: OpenMSXInstance | null = null;
 
-    const spawnNewAndConnect = async (command: string): Promise<DispatcherResult> => {
+    const spawnNewAndConnect = async (command: string): Promise<CommandResult> => {
         const newInstance = await instanceManager.spawnInstance();
         await connector.establishConnection(newInstance.port);
         attachedInstance = newInstance;
@@ -55,10 +55,8 @@ export const createCommandHandler = (
         executeCommand: async (
             command: string, 
             elicitExecutor: (elicitation: Elicitation) => Promise<{ action: string; content?: any }>
-        ): Promise<DispatcherResult> => {
+        ): Promise<CommandResult> => {
             console.error(`[openmsx-control] Attached instance: ${JSON.stringify(attachedInstance)}`);
-            
-            // 1. Try connecting to the cached/attached instance
             if (attachedInstance) {
                 try {
                     await connector.establishConnection(attachedInstance.port);
@@ -69,17 +67,11 @@ export const createCommandHandler = (
                     attachedInstance = null;
                 }
             }
-            
-            // 2. Fetch raw instances directly from the system (no runtime checks)
             const instances = await instanceManager.fetchInstances();
-            
-            // Case A: Zero instances exist on the system -> Cleanly spawn a fresh one
             if (instances.length === 0) {
                 console.error("[openmsx-control] Spawning new instance");
                 return await spawnNewAndConnect(command);
             }
-            
-            // Case B: Instances are present -> Present them ALL to the user blindly via elicitation
             try {
                 console.error(`[openmsx-control] ${instances.length}x instance(s) found. Sending elicitation form.`);
                 const elicitationPayload = buildElicitation(instances);
@@ -99,9 +91,6 @@ export const createCommandHandler = (
                 if (!target) {
                     throw new Error(`Selected instance on port ${selectedPort} vanished from reference list.`);        
                 }
-                
-                // Blindly attempt connection. If the chosen file is stale/dead, 
-                // this will natively blow up and route straight to the catch block.
                 await connector.establishConnection(selectedPort);
                 attachedInstance = target;
                 
@@ -111,9 +100,6 @@ export const createCommandHandler = (
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 console.error(`[openmsx-control] Unexpected error: ${message}`);
-                
-                // Returns a explicit failure status to the agent/user.
-                // On the next tool execution loop, the stale instance will still be there to choose again.
                 return { status: 'FAILURE', content: `Execution failed: ${message}` };
             }
         }
